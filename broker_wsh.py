@@ -17,7 +17,7 @@ _CLOSE_ = 3
 
 _status_ = _CONNECTING_
 
-_BROKER_URL = "some_magical_mqtt_broker_host"
+_BROKER_URL = "localhost"
 _BROKER_PORT = 1883
 _TOPIC_BASE = "makerbot/status"
 
@@ -42,8 +42,12 @@ class broker():
 
     def onMessage(self, mosq, obj, msg):
         if _status_ == _OPEN_:
-            string = json.dumps({"topic": msg.topic, "message": msg.payload})
-            msgutil.send_message(self.socket, string)
+            try:
+                string = json.dumps({"topic": msg.topic, "message": msg.payload})
+                msgutil.send_message(self.socket, string)
+            except Exception:
+                return
+
 
     def onConnect(self, mosq, obj, rc):
         if rc == 0:
@@ -57,8 +61,11 @@ class broker():
 
     def onPublish(self, mosq, obj, mid):
         if _status_ == _OPEN_:
-            string = json.dumps({"topic": self.topic + "/server", "message": "Message published to broker"})
-            msgutil.send_message(self.socket, string)
+            try:
+                string = json.dumps({"topic": self.topic + "/server", "message": "Message published to broker"})
+                msgutil.send_message(self.socket, string)
+            except Exception:
+                return
 
     def run(self):
         global _status_
@@ -75,7 +82,6 @@ class broker():
 def web_socket_do_extra_handshake(request):
     pass  # Always accept.
 
-
 def web_socket_transfer_data(request):
     global _status_
     _status_ = _OPEN_
@@ -86,15 +92,25 @@ def web_socket_transfer_data(request):
     talk = thread.start_new_thread(instance.run, arr)
     while True:
         try:
+            #######################################################
+            # Note::
+            # mesgutil.receive_message() returns 'unicode', so
+            # if you want to treated as 'string', use encode('utf-8')
+            #######################################################
             line = msgutil.receive_message(request).encode('utf-8')
 
             if line == _INFO:
                 instance.requestMachineInfo()
                 continue
 
-
         except Exception:
             _status_ = _CLOSING_
-
-        time.sleep(5)
+            # wait until _status_ change.
+            i = 0
+            while _status_ == _CLOSING_:
+                time.sleep(0.5)
+                i += 1
+                if i > 10:
+                    break
+            return
 
