@@ -44,6 +44,8 @@ class broker():
         self.client.connect(self.url, self.port, 60)
         self.client.subscribe(_TOPIC_BASE + "/#", 2)
 
+    def close(self):
+        self.client.disconnect()
 
     def onMessage(self, mosq, obj, msg):
         if _status_ == _OPEN_:
@@ -77,7 +79,11 @@ class broker():
 
         #keep web socket connected while mqtt is connected
         while self.client.loop() == 0:
-            pass
+            if _status_ == _OPEN_:
+                pass
+            else:
+                self.client.disconnect()
+                break
 
     def requestMachineInfo(self):
         #client.publish(topic, payload=None, qos=0, retain=false)
@@ -131,6 +137,10 @@ def web_socket_transfer_data(request):
                 i += 1
                 if i > 10:
                     break
+                
+            #trying something
+            instance.close()
+            
             # close connection
             return 
 
