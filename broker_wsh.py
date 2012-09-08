@@ -9,14 +9,19 @@ import random
 import string
 import time
 
-_INFO = 'info'
+# listen on web socket for commands
+_INFO = "info"
+_HEARTBEAT = "heartbeat"
+_STATE = "state"
+
+# web socket states
 _CONNECTING_ = 0
 _OPEN_ = 1
 _CLOSING_ = 2
 _CLOSE_ = 3
-
 _status_ = _CONNECTING_
 
+# broker information for mqtt
 _BROKER_URL = "localhost"
 _BROKER_PORT = 1883
 _TOPIC_BASE = "makerbot/status"
@@ -77,6 +82,10 @@ class broker():
     def requestMachineInfo(self):
         #client.publish(topic, payload=None, qos=0, retain=false)
         self.client.publish(_TOPIC_BASE + "/get", "info", 1)
+        
+    def requestMachineState(self):
+        #client.publish(topic, payload=None, qos=0, retain=false)
+        self.client.publish(_TOPIC_BASE + "/get", "state", 1)
 
 
 def web_socket_do_extra_handshake(request):
@@ -98,9 +107,19 @@ def web_socket_transfer_data(request):
             # if you want to treated as 'string', use encode('utf-8')
             #######################################################
             line = msgutil.receive_message(request).encode('utf-8')
-
+            
+            # get some machine info
             if line == _INFO:
                 instance.requestMachineInfo()
+                continue
+            
+            # what's the machine doing
+            if line == _STATE:
+                instance.requestMachineState()
+                continue
+            
+            # client is still alive
+            if line == _HEARTBEAT:
                 continue
 
         except Exception:
@@ -112,5 +131,6 @@ def web_socket_transfer_data(request):
                 i += 1
                 if i > 10:
                     break
-            return
+            # close connection
+            return 
 
